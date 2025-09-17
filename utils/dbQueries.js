@@ -2,6 +2,8 @@ const { Pool } = require("pg");
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
+const { ERROR_CODES } = require('./constants.js')
+
 require("dotenv").config({path: __dirname + '/../.env'});
 
 const pool = new Pool({
@@ -88,12 +90,18 @@ const testuser =  {
 });
 */
 const getUserFromID = async (userID) => {
-  const result = await pool.query("SELECT * FROM users WHERE id = $1;", [userID]);
-  if (result.rows.length === 0) {
-    return { success: false, message: "User not found" };
+  try {
+
+  
+    const result = await pool.query("SELECT * FROM users WHERE id = $1;", [userID]);
+    if (result.rows.length === 0) {
+      return { success: false, error_code: ERROR_CODES.USER_NOT_FOUND, error: `user ${userID} not found` };
+    }
+    user = result.rows[0];
+    return user
+  } catch (err) {
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err};
   }
-  user = result.rows[0];
-  return user
 }
 
 const CreateChannel = async (name, description, user, type) => { 
@@ -102,13 +110,13 @@ const CreateChannel = async (name, description, user, type) => {
       "INSERT INTO channels (name, description, created_by, type) VALUES ($1, $2, $3, $4) RETURNING *",
       [name, description, user.id, type]
     );
-    console.log("Channel created:", name);
     return channel.rows[0];
   } catch (err) {
     if (err.code === "23505") {
-      console.log("Channel name already exists");
+      return { success: false, error_code: ERROR_CODES.CHANNEL_ALEADYY_EXISTS, error: "Channel name already exists" };
     } else {
-      console.error("Error creating channel:", err);
+
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err };
     }
   };
 };
@@ -119,12 +127,12 @@ const AdduserToChannel = async (Channel, User) => {
     await pool.query(
       "INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2)", [Channel.id, User.id]
     );
-    console.log(`User ${User.id} added to channel ${Channel.id}`);
+    return { success: true };
   } catch (err) {
     if (err.code === "23505") {
-      console.log("User already in channel"); 
+      return { success: false, error_code: ERROR_CODES.USER_ALREADY_IN_CHANNEL, error: "User already in channel" };
     } else {
-      console.error("Error adding user to channel:", err);
+      return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err };
     }
   }
 };
@@ -134,20 +142,21 @@ const RemoveUserFromChannel = async (Channel, User) => {
     await pool.query(
       "DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2", [Channel.id, User.id]
     );
-    console.log(`User ${User.id} removed from channel ${Channel.id}`);
+    return { success: true };
+    
   } catch (err) {
-      console.error("Error removing user from channel:", err);
-  }
-};
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
+  };
+}
 
 const DeleteChannel = async (Channel, user) => {
   try {
     await pool.query(
       "DELETE FROM channels WHERE id = $1", [Channel.id]
     );
-    console.log(`Channel ${Channel.id} deleted`);
+    return { success: true };
   } catch (err) {
-      console.error("Error deleting channel:", err);
+      return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
   }
 };
 
@@ -156,28 +165,51 @@ const addMessageToChannel = async (user, content, channelId) => {
     await pool.query(
       "INSERT INTO messages (sender_id, channel_id, content) VALUES ($1, $2, $3)", [user.id, channelId, content]
     );
-    console.log(`Message from ${user.id} to channel ${channelId} added`);
+    return { success: true };
   } catch (err) {
-      console.error("Error adding message to channel:", err);
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
   }
 };
 
 const addMessageToRead = async (user, messageId) => {
   try {
     await pool.query("INSERT INTO message_reads (message_id, user_id) VALUES ($1, $2)", [messageId, user.id]);
+    return { success: true };
   } catch (err) {
-      console.error("Error marking message as read:", err);
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
   }
 };
 
 
 const getMessagesFromChannel = async (channel) => {
   try {
-    
+    const result = await pool.query("SELECT * FROM messages WHERE channel_id = $1", [channel.id] )  
+    if (result.rows.length != 0) {
+      return { success: false, error_code: ERROR_CODES.NO_MESSAGES_FOUND, error: "No messages in this channel" }
+    }
+
+    return { success: true, result: result.rows }
+
   } catch (err) {
-    console.error('couldnt find messages:', err)
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err }
   }
 }
+const getUserUnreadChannelMessages = async (user, channel) => {
+  try {
+    const result = await pool.query("SELECT m.* FROM messages m WHERE m.channel_id = $2 AND NOT EXISTS (SELECT 1 FROM message_reads mr WHERE mr.message_id = m.id AND mr.user_id = $1);", [user.id, channel.id] )
+    if (result.rows.length != 0) {
+      return { success: false, error_code: ERROR_CODES.NO_MESSAGES_FOUND, error: "No unread messages in channel" }
+    }
+    return { success: true, result: result.rows }   
+  }
+  catch (err) {
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
+  }
+};
+
+
+
+
 
 
 
