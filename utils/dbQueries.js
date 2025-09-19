@@ -7,13 +7,12 @@ const { ERROR_CODES } = require('./constants.js')
 require("dotenv").config({path: __dirname + '/../.env'});
 
 const pool = new Pool({
-  user: process.env.DB_USER,          // your PostgreSQL username
-  host: process.env.DB_HOST,   // Raspberry Pi IP
-  database: process.env.DB_TABLE,// or chatsite_prod
-  password: process.env.DB_PASS,// the password for sundew
-  port: process.env.DB_PORT,              // default PostgreSQL port
+  user: process.env.DB_USER,         
+  host: process.env.DB_HOST,  
+  database: process.env.DB_TABLE,
+  password: process.env.DB_PASS,
+  port: process.env.DB_PORT,
 });
-
 
 
 const CreateAccount = async (username, hashedPassword) => {
@@ -160,7 +159,7 @@ const DeleteChannel = async (Channel, user) => {
   }
 };
 
-const addMessageToChannel = async (user, content, channelId) => {
+const addMessageToChannel = async (user, channelId, content) => {
   try {
     await pool.query(
       "INSERT INTO messages (sender_id, channel_id, content) VALUES ($1, $2, $3)", [user.id, channelId, content]
@@ -180,13 +179,27 @@ const addMessageToRead = async (user, messageId) => {
   }
 };
 
+const GetUserServerListQuerry = async (user) => {
+  try {
+    const result = await pool.query("SELECT c.* FROM channels c JOIN channel_members cm ON c.id = cm.channel_id WHERE cm.user_id = $1", [user.id] )
+    if (result.rows.length === 0) {
+      return { success: false, error_code: ERROR_CODES.CHANNEL_NOT_FOUND, error: "No channels found for user" }
+    }
+    return { success: true, result: result.rows }
+  } catch (err) {
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
+  }
+};
+
+
+
 
 const getMessagesFromChannel = async (channel) => {
   try {
     const result = await pool.query("SELECT * FROM messages WHERE channel_id = $1", [channel.id] )  
-    if (result.rows.length != 0) {
-      return { success: false, error_code: ERROR_CODES.NO_MESSAGES_FOUND, error: "No messages in this channel" }
-    }
+    //if (result.rows.length != 0) {
+     // return { success: false, error_code: ERROR_CODES.NO_MESSAGES_FOUND, error: "No messages in this channel" }
+    //}
 
     return { success: true, result: result.rows }
 
@@ -227,5 +240,10 @@ module.exports = {
   DeleteChannel,
   addMessageToChannel,
   addMessageToRead,
-  getUserFromID
-};
+  getUserFromID,
+  GetUserServerListQuerry,
+  getMessagesFromChannel,
+  getUserUnreadChannelMessages
+
+ };
+

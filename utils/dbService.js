@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const CHANNEL_TYPES = require("./constants");
 const crypto = require("crypto");
-const { getUserFromID, AdduserToChannel, CreateAccount, CreateChannel } = require("./dbQueries");
+const dbQueries = require("./dbQueries");
 
 require("dotenv").config({path: __dirname + '/../.env'});
 
@@ -16,31 +16,57 @@ function dmChannelName(userId1, userId2) {
                .slice(0, 16); // short hash
 }
 
+const channel = {
+
+      id: 1,
+      name: '412a4789b02cad19',
+      description: 'Chat between sundew & Maddie',
+      created_by: 1,
+      created_at: "2025-09-16T11:58:56.279Z",
+      type: 0
+    
+};
 
 const CreateDM = async (user, targetID) => {
-    const targetUser = await getUserFromID(targetID);
+    const targetUser = await dbQueries.getUserFromID(targetID);
     if (!targetUser || targetUser.success === false) {
-        returm ("Target user not found");
+        return ("Target user not found");
     }
     const channelName = dmChannelName(user.id, targetID)
-    const channel = await CreateChannel(channelName, `Chat between ${user.username} & ${targetUser.username}`, user, CHANNEL_TYPES.DM)
+    const channel = await dbQueries.CreateChannel(channelName, `Chat between ${user.username} & ${targetUser.username}`, user, CHANNEL_TYPES.DM)
 
-    await AdduserToChannel(channel, user)
-    await AdduserToChannel(channel, targetUser)
+    await dbQueries.AdduserToChannel(channel, user)
+    await dbQueries.AdduserToChannel(channel, targetUser)
 }
 
 
-(async () => {
-  const user = await getUserFromID(1);
-  console.log(user); // actual user object or { success: false, ... }
-  CreateDM(user, 2)
-})();
 
 
 const CreateUser = async (username, password) => {
     const hashedPassword = await bcrypt.hash(password, 12); 
-    await CreateAccount(username, hashedPassword);
+    await dbQueries.CreateAccount(username, hashedPassword);
 } 
+
+const GetUserServerList = async (user) => {
+  const request = dbQueries.GetUserServerListQuerry(user);
+  return request;
+}
+/*
+(async () => { 
+  const user = await dbQueries.getUserFromID(1);
+  const test = await dbQueries.addMessageToChannel(user , 1, "Hello, this is a test message!");
+  console.log(test);
+  return;
+})();*/
+
+
+(async () => {
+  const user = await dbQueries.getMessagesFromChannel(1);
+  console.log(user); // actual user object or { success: false, ... }
+  const GetUserServerListReponse = await dbQueries.getMessagesFromChannel(channel);
+  console.log(GetUserServerListReponse);
+})();
+
 
 /*
 i have a database where the sqlqueries to get everything is, SELECT channel_id, user_id, joined_at FROM public.channel_members; SELECT id, "name", description, created_by, created_at, "type" FROM public.channels; SELECT message_id, user_id, read_at FROM public.message_reads; SELECT id, sender_id, channel_id, "content", created_at FROM public.messages; SELECT id, username, password_hash, "token", token_expiry, created_at FROM public.users;, i also have a bunch of functions to call them going along the lines of CreateAccount, LoginUser, CreateChannel, AdduserToChannel, RemoveUserFromChannel, DeleteChannel, addMessageToChannel, addMessageToRead, getUserFromID with more to add, with constants like this const CHANNEL_TYPES = { DM: 0, GROUP: 1 }; / Range Category Example Codes 1000–1999 - Auth & User 2000–2999 Messages & Channels 3000–3999 Requests & Validation 4000–4999 System/Infra / const ERROR_CODES = { // 1000s: Auth & Users USER_NOT_FOUND: { code: 1001, message: "User not found.", severity: ERROR_SEVERITY.MIN}, INVALID_PASSWORD: { code: 1002, message: "Invalid password.", severity: ERROR_SEVERITY.MIN }, UNAUTHORIZED: { code: 1003, message: "Unauthorized request.", severity: ERROR_SEVERITY.NORMAL },
@@ -58,3 +84,4 @@ i also wanted how i can build the higher functions like this so i can easily see
 await AdduserToChannel(channel, user)
 await Ad
 */ 
+

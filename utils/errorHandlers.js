@@ -62,3 +62,5 @@ const ntfy = async (error_code, error) => {
 
 module.exports = { ErrorHandle };
 
+
+ErrorHandle(ERROR_CODES.UNKNOWN_ERROR, {error: "meow"});
