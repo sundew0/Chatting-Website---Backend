@@ -189,9 +189,34 @@ const GetUserServerListQuerry = async (user) => {
   } catch (err) {
     return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
   }
+  
 };
 
 
+const GetServerMemberListQuerry = async (channel) => {
+  try {
+    const result = await pool.query("SELECT u.* FROM users u JOIN channel_members cm ON u.id = cm.user_id WHERE cm.channel_id = $1", [channel.id])
+    if (result.rows.length === 0) {
+      return { success: false, error_code: ERROR_CODES.CHANNEL_NOT_FOUND, error: "No channels found for user" }
+    }
+    return { success: true, result: result.rows }
+  } catch (err) {
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
+  }
+};
+
+
+const getUserInChannel = async (user, channel) => {
+    try {
+    const result = await pool.query("SELECT 1 FROM channel_members WHERE user_id = $1 AND channel_id = $2 LIMIT 1", [user.id, channel.id] )
+    if (result.rowCount === 0) {
+      return { success: false, error_code: ERROR_CODES.USER_NOT_FOUND, error: "No channels found for user" }
+    }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error_code: ERROR_CODES.DB_QUERY_FAILED, error: err}
+  }
+}
 
 
 const getMessagesFromChannel = async (channel) => {
@@ -243,7 +268,9 @@ module.exports = {
   getUserFromID,
   GetUserServerListQuerry,
   getMessagesFromChannel,
-  getUserUnreadChannelMessages
+  getUserUnreadChannelMessages,
+  getUserInChannel,
+  GetServerMemberListQuerry
 
  };
 
