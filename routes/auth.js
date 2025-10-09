@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { body, validationResult } = require("express-validator");
 const bcrypt = require("bcrypt");
-const { readUsers, writeUsers } = require("../utils/fileHelpers");
+const dbService = require("../utils/dbService");
 
 // Create user
 router.post(
@@ -16,16 +16,16 @@ router.post(
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    let users = readUsers();
-    if (users.some(u => u.username.toLowerCase() === username.toLowerCase()))
-      return res.status(409).json({ error: "Username already exists" });
-
-    users.push({ username, password: hashedPassword });
-    writeUsers(users);
-
-    res.status(201).send();
+    try {
+      const result = await dbService.CreateUser(username, password);
+      if (result && result.success === false) {
+        return res.status(409).json({ error: result.error || "Username already exists" });
+      }
+      res.status(201).json({ success: true });
+    } catch (err) {
+      console.error("Error creating user:", err);
+      res.status(500).json({ error: "Failed to create user" });
+    }
   }
 );
 router.post("/login_user", 
@@ -37,25 +37,21 @@ router.post("/login_user",
     console.log("BODY RECEIVED:", req.body);
     const { username, password } = req.body;
 
-    let users = []
-  
-    users = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-    const user =  users.find(u => u.username.toLowerCase() === username.toLowerCase())
-    if (user) {
-
-      const match = await bcrypt.compare(password, user.password)
-      const whitelisted = ["sundew", "sewil", "areila", "arelia"]
-      if (match) {
-
-//        if (whitelisted.includes(username.toLowerCase()))
-        return res.status(200).json( { passed: true})
+    try {
+      const result = await dbService.LoginUser(username, password);
+      if (result && result.success === true) {
+        return res.status(200).json({ 
+          success: true, 
+          token: result.token, 
+          user: { id: result.user.id, username: result.user.username } 
+        });
       }
+      return res.status(401).json({ error: result.message || "Invalid username or password" });
+    } catch (err) {
+      console.error("Error logging in user:", err);
+      return res.status(500).json({ error: "Failed to login user" });
     }
-      
-      return res.status(401).json({ error: "Invalid username or password" });
-
-      
-
-})
+  }
+);
 
 module.exports = router;

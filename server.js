@@ -5,6 +5,8 @@ const http = require("http");
 
 const authRoutes = require("./routes/auth");
 const messageRoutes = require("./routes/messages");
+const { router: channelRoutes, setWebSocketServer } = require("./routes/channel");
+const userRoutes = require("./routes/user");
 const setupWebSocket = require("./websocket/wsServer");
 
 const app = express();
@@ -18,14 +20,18 @@ app.use(express.json())
 
 app.use("/auth", authRoutes)
 app.use("/messages", messageRoutes);
+app.use("/channel", channelRoutes);
+app.use("/user", userRoutes);
 
-const server = http.createServer(app)
+const server = http.createServer(app);
 
-setupWebSocket(server)
+// Attach WebSocket server to the same HTTP server
+const wss = setupWebSocket(server);
 
+// Set the WebSocket server reference for channel routes
+setWebSocketServer(wss);
 
-// Create an HTTP server to attach the WebSocket server
-server = app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
 

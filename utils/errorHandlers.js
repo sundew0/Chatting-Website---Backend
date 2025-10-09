@@ -1,5 +1,10 @@
 const { ERROR_SEVERITY, ERROR_CODES} = require("./constants");
 
+const logError = (error) => {
+    // Simple logging, can be extended to external service
+    console.error("[ERROR]", error);
+}
+
 const ErrorHandle = async (error_code, error) => {
 
     if (error_code.severity === ERROR_SEVERITY.SERVER) {
@@ -49,7 +54,7 @@ const ntfy = async (error_code, error) => {
     const title = `Error: ${error_code.code}`;
     const message = `${error_code.message}\nDetails: ${error_code.code || 'N/A'} \n\n\n error object: \n ${JSON.stringify(error, null, 2)}`;
 
-    const response = await fetch(API_URL, {
+  /*  const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
             'Title': title,
@@ -57,7 +62,7 @@ const ntfy = async (error_code, error) => {
             'Content-Type': 'text/plain'
         },
         body: message
-    });
+    });*/
 }
 
 module.exports = { ErrorHandle };

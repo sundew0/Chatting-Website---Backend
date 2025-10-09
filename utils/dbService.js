@@ -1,3 +1,4 @@
+
 require("./dbQueries")
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
@@ -14,6 +15,8 @@ function dmChannelName(userId1, userId2) {
                                      .update(sorted.join("-"))
                                      .digest("hex")
                                      .slice(0, 16);
+
+  console.log(dmChannelName)
   return dmChannelName;
 }
 
@@ -48,47 +51,58 @@ const channel = {
       type: 0
     
 };
+const LoginUser = async (username, password) => {
+  // Use the dbQueries LoginUser function which handles JWT token generation
+  return await dbQueries.LoginUser(username, password);
+};
 
 const CreateDM = async (user, targetID) => {
     const targetUser = await dbQueries.getUserFromID(targetID);
     if (!targetUser || targetUser.success === false) {
         return ("Target user not found");
     }
-    const channelName = dmChannelName(user.id, targetID)
-    const channel = await dbQueries.CreateChannel(channelName, `Chat between ${user.username} & ${targetUser.username}`, user, CHANNEL_TYPES.DM)
 
-    await dbQueries.AdduserToChannel(channel, user)
-    await dbQueries.AdduserToChannel(channel, targetUser)
+    
+    
+    const channelName = dmChannelName(user.id, targetID)
+
+    const channel = await dbQueries.CreateChannel(channelName, `Chat between ${user.username} & ${targetUser.username}`, user, 0)
+    console.log(user)
+    await dbQueries.AdduserToChannel(channel.id, user.id)
+    await dbQueries.AdduserToChannel(channel.id, targetID)
 
     return channel
 }
 
 const  CreateDMOrChannel = async (user, type, targetID = null, channelName= null, channelDiscription = null) => {
-  if (type == CHANNEL_TYPES.DM) {
+  if (type == 0) {
+
     if (!targetID) {
       return ('error')
     }
+  
     const channel = await CreateDM(user, targetID)
     return channel
-  } else if (type === CHANNEL_TYPES.CHANNEL) {
+  } else if (type === 1) {
     if (!channelName) {
       return { success: false, error: "Channel name is required" };
     }
-    const channel = await dbQueries.CreateChannel(channelName, channelDiscription, user, CHANNEL_TYPES.CHANNEL)
-    await dbQueries.AdduserToChannel(channel, user)
+    const channel = await dbQueries.CreateChannel(channelName, channelDiscription, user, 1)
+    await dbQueries.AdduserToChannel(channel.id, user.id)
+    console.log(channel)
     return channel
   }
 }
 
 
 
-const SendMessage = async (user, channelID, content) => {
-    if (!userInChannel(user, channelID))
+const SendMessage = async (userID, channelID, content) => {
+    if (!userInChannel(userID, channelID))
     {
       return {success: false}
     }
 
-    const message = await dbQueries.addMessageToChannel(user, channelID, content);
+    const message = await dbQueries.addMessageToChannel(userID, channelID, content);
 
     return {success: true}
 }
@@ -101,28 +115,54 @@ const CreateUser = async (username, password) => {
 } 
 
 const GetUserServerList = async (user) => {
-  const request = dbQueries.GetUserServerListQuerry(user);
+  const request = await dbQueries.GetUserServerListQuerry(user);
   return request;
 }
 const getMemberList = async (channel, user) => {
-  const membership = userInChannel(user, channel.id);
-  if (!membership) {
-    return {success: false};
-  }
-  const request = dbQueries.GetServerMemberListQuerry(channel);
+  // For now, let's skip the user membership check and just get members
+  // TODO: Add proper user authentication to check membership
+  const request = await dbQueries.GetServerMemberListQuerry(channel);
   return request;
 }
 const getMessages = async (channel) => {
-  const membership = userInChannel(user, channel.id);
-  if (!membership) {
-    return {success: false};
-  }
-  const request = dbQueries.getMessagesFromChannel(channel);
+  // For now, let's skip the user membership check and just get messages
+  // TODO: Add proper user authentication to check membership
+  const request = await dbQueries.getMessagesFromChannel(channel);
   return request;
 }
 const addUserToServer = async (user, channel) => {
   const request = await dbQueries.AdduserToChannel(channel, user);
   return request;
+}
+
+const addUserToChannel = async (userId, channelId) => {
+  const user = await dbQueries.getUserFromID(userId);
+  const channel = await dbQueries.getChannelFromID(channelId);
+  
+  if (!user || user.success === false) {
+    return { success: false, error: "User not found" };
+  }
+  
+  if (!channel || channel.success === false) {
+    return { success: false, error: "Channel not found" };
+  }
+  
+  const request = await dbQueries.AdduserToChannel(channel.result, user.result);
+  return request;
+}
+
+const createChannel = async ({ user, type, targetID, channelName, channelDescription }) => {
+  return await CreateDMOrChannel(user, type, targetID, channelName, channelDescription);
+}
+
+const getUserChannels = async (userId) => {
+  const user = await dbQueries.getUserFromID(userId);
+  if (!user) {
+    return { success: false, error: "User not found" };
+  }
+  
+  // Pass the user object with the correct structure
+  return await GetUserServerList(user);
 }
 /*
 (async () => { 
@@ -136,7 +176,7 @@ const addUserToServer = async (user, channel) => {
 (async () => {
   const user = await dbQueries.getUserFromID(1);
 
-  const getchanneltest = await dbQueries.getUserInChannel(user, channel) 
+  const getchanneltest = await GetUserServerList(user) 
   console.log(getchanneltest)
 
 })();
@@ -149,5 +189,9 @@ module.exports = {
   CreateUser,
   GetUserServerList,
   getMemberList,
-  getMessages
+  getMessages,
+  LoginUser,
+  addUserToChannel,
+  createChannel,
+  getUserChannels
 }

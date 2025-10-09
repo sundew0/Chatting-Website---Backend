@@ -18,6 +18,13 @@ const ERROR_SEVERITY = {
 }
 
 
+const MESSAGE_TYPES = {
+  MESSAGE: "message",
+  KEEP_ALIVE: "keep-alive",
+  USER_JOIN: "user-join",
+  USER_LEAVE: "user-leave"
+};
+
 const ERROR_CODES = {
   // 1000s: Auth & Users
   USER_NOT_FOUND: { code: 1001, message: "User not found.", severity: ERROR_SEVERITY.MIN},
@@ -45,5 +52,6 @@ const ERROR_CODES = {
 module.exports = {
   CHANNEL_TYPES,
   ERROR_CODES,
-  ERROR_SEVERITY
+  ERROR_SEVERITY,
+  MESSAGE_TYPES
 }
