@@ -80,5 +80,23 @@ router.post("/addUser", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to add user to channel" });
   }
 });
+router.get("/serverList", authenticateToken, async (req, res) => {
+  const { channelID } = req.query;
+  if (!channelID) {
+    return res.status(400).json({ error: "Missing channel ID" });
+  }
+
+  try {
+    const result = await dbService.getMemberList(channelID);
+    if (!result && result.success === false) {
+      return res.status(404).json({ error: result.error || "channel not found" });
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching channel:", err);
+    res.status(500).json({ error: "Failed to fetch channel" });
+  }
+});
 
 module.exports = { router, setWebSocketServer };
